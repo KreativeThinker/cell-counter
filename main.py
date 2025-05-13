@@ -1,158 +1,106 @@
 import logging
 import os
+import sys
 
-import cv2
+import bioformats
+import cv2 as cv
+import javabridge
+import matplotlib.pyplot as plt
 import numpy as np
-from bioformats import ImageReader
 
 
-def load_image(image_path):
+def load_image(path):
     """
-    Loads the image from the given path, handling .vsi format.
+    Load an image using Bio-Formats and return the image data.
 
-    Args:
-        image_path (str): Path to the image file.
+    Parameters:
+        path (str): The path to the image file.
 
     Returns:
-        numpy.ndarray: The image as a NumPy array, or None on error.
+        numpy.ndarray: The loaded image data.
     """
+    # Start the Java Virtual Machine (JVM)
+    javabridge.start_vm(class_path=bioformats.JARS, run_headless=True)
+
     try:
-        if image_path.lower().endswith(".vsi"):
-            reader = ImageReader(image_path)
-            # Assuming you want the first series and first channel.
-            image = reader.read(series=0, c=0)
-            reader.close()  # Close the reader to release resources
-        else:
-            image = cv2.imread(image_path)
-            if image is None:
-                raise FileNotFoundError(
-                    f"Error: Could not read image at {image_path}"
-                )
-    except Exception as e:
-        print(f"Error loading image: {e}")
-        return None
-    return image
+        # Read the image using Bio-Formats
+        image_data = bioformats.load_image(path)
+        omexml_metadata = bioformats.OMEXML()
+        logging.info(omexml_metadata)
+
+        return image_data
+    finally:
+        # Stop the JVM
+        javabridge.kill_vm()
 
 
-def apply_contours(image):
+def save_image_with_contours(image, path):
     """
-    Applies contour detection to the image.
+    Display the image with highlighted contours using matplotlib.
 
-    Args:
-        image (numpy.ndarray): The input image.
-
-    Returns:
-        tuple: A tuple containing the original image and the contours found,
-               or (None, None) on error.
+    Parameters:
+        image (numpy.ndarray): The image data to display.
+        path (str): The path to the image file.
     """
-    try:
-        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        blurred = cv2.GaussianBlur(gray, (5, 5), 0)
-        _, thresh = cv2.threshold(
-            blurred, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU
-        )
-        contours, _ = cv2.findContours(
-            thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
-        )
-        return image, contours  # Return both image and contours
-    except Exception as e:
-        print(f"Error applying contours: {e}")
-        return None, None
+    # Convert the image to grayscale for contour detection
+    gray = cv.cvtColor(image, cv.COLOR_RGB2GRAY)  # Use COLOR_RGB2GRAY
+    # Apply a blur to reduce noise
+    blurred = cv.GaussianBlur(gray, (1, 1), 0)
+    # Ensure the image is of type CV_8U
+    if blurred.dtype != np.uint8:
+        blurred = (blurred / np.max(blurred) * 255).astype(np.uint8)
 
+    # Apply Canny edge detection
+    edges = cv.Canny(blurred, 100, 200)  # Adjust thresholds as needed
 
-def perform_counts(image, contours):
-    """
-    Performs cell counting based on the detected contours.
+    # Find contours
+    contours, _ = cv.findContours(
+        edges, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE
+    )
 
-    Args:
-        image (numpy.ndarray): the original image
-        contours (list): List of contours detected in the image.
+    image_with_contours = image.copy()
+    cv.drawContours(image_with_contours, contours, -1, (0, 255, 0), 1)
 
-    Returns:
-        dict: A dictionary containing the counts for each cell type,
-              or None on error.
-    """
-    if contours is None or image is None:
-        return {"Cell Type 1": 0, "Cell Type 2": 0}  # Or error
+    print(f"Cell count: {len(contours)}")
 
-    cell_type_1_count = 0
-    cell_type_2_count = 0
-    counted_image = image.copy()  # Create a copy to draw on
+    # Draw contours on a copy of the original image
+    image_with_contours = image.copy()
+    cv.drawContours(
+        image_with_contours, contours, -1, (0, 255, 0), 1
+    )  # Green contours
 
-    for contour in contours:
-        area = cv2.contourArea(contour)
-        perimeter = cv2.arcLength(contour, True)
-        circularity = (
-            4 * np.pi * area / (perimeter * perimeter) if perimeter > 0 else 0
-        )
-        x, y, w, h = cv2.boundingRect(contour)  # Get bounding box
-        aspect_ratio = float(w) / h  # Calculate aspect ratio
+    # Ensure the image data is in the 0-1 range if it's float
+    if (
+        image_with_contours.dtype == np.float32
+        or image_with_contours.dtype == np.float64
+    ):
+        image_with_contours = np.clip(image_with_contours, 0, 1)
 
-        logging.info(f"(x, y, w, h): ({x}, {y}, {w}, {h})")
-        logging.info(f"Aspect Ratio: {aspect_ratio}")
-
-        # In real scenario, calculate mean_intensity for each stain.
-        mean_intensity_1 = 100  # Dummy Value
-        mean_intensity_2 = 50  # Dummy Value
-
-        # Cell Classification (Example: Based on area and circularity)
-        if (
-            50 < area < 200
-            and circularity > 0.6
-            and 80 < mean_intensity_1 < 120
-        ):
-            cell_type_1_count += 1
-            cv2.drawContours(
-                counted_image, [contour], -1, (0, 255, 0), 2
-            )  # Green for Type 1
-        elif (
-            100 < area < 500
-            and circularity < 0.4
-            and 40 < mean_intensity_2 < 60
-        ):
-            cell_type_2_count += 1
-            cv2.drawContours(
-                counted_image, [contour], -1, (255, 0, 0), 2
-            )  # Blue for Type 2
-
-    # Display the counted image.
-    cv2.imshow("Cell Counts", counted_image)
-    cv2.waitKey(0)  # Waits for key press
-    cv2.destroyAllWindows()
-
-    return {"Cell Type 1": cell_type_1_count, "Cell Type 2": cell_type_2_count}
+    # Save the image with contours
+    plt.imsave(f"{path[:-4]}.png", image_with_contours)
+    print("Image with contours saved as contours.png")
 
 
 def main(image_path):
     """
-    Main function to load, process, and count cells in an image.
+    Main function to load and process the image.
 
     Args:
         image_path (str): Path to the image file.
     """
     image = load_image(image_path)
-    if image is None:
-        print("Error: Image loading failed. Exiting.")
-        return
-
-    image_with_contours, contours = apply_contours(image)
-    if contours is None:
-        print("Error: Contour detection failed. Exiting.")
-        return
-
-    counts = perform_counts(image_with_contours, contours)
-    if counts is None:
-        print("Error: Cell counting failed. Exiting")
-        return
-
-    print(f"Cell Counts: {counts}")
+    if image is not None:
+        save_image_with_contours(image, image_path)
+    else:
+        print(f"Error: Could not load image at {image_path}")
+        sys.exit(1)
 
 
 if __name__ == "__main__":
-    image_path = os.path.abspath(
-        ""
-    )  # create input function here to input the image.
+    logging.basicConfig(level=logging.INFO)
+    image_path = "./data/Ananya Sehgal_T1C1/Control 1/Slide 1/Au1_L2_C1m.vsi"
     if not os.path.exists(image_path):
-        print(f"Error: Image not found at {image_path}")
-    else:
-        main(image_path)
+        print(f"Error: Image file not found at {image_path}")
+        sys.exit(1)
+    main(image_path)
+    # overlay mask on original file
