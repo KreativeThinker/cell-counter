@@ -1,12 +1,13 @@
-import logging
+import csv
 import os
 import sys
 
 import bioformats
 import cv2 as cv
 import javabridge
-import matplotlib.pyplot as plt
 import numpy as np
+
+javabridge.start_vm(class_path=bioformats.JARS, run_headless=True)
 
 
 def load_image(path):
@@ -20,21 +21,14 @@ def load_image(path):
         numpy.ndarray: The loaded image data.
     """
     # Start the Java Virtual Machine (JVM)
-    javabridge.start_vm(class_path=bioformats.JARS, run_headless=True)
 
-    try:
-        # Read the image using Bio-Formats
-        image_data = bioformats.load_image(path)
-        omexml_metadata = bioformats.OMEXML()
-        logging.info(omexml_metadata)
+    # Read the image using Bio-Formats
+    image_data = bioformats.load_image(path)
 
-        return image_data
-    finally:
-        # Stop the JVM
-        javabridge.kill_vm()
+    return image_data
 
 
-def save_image_with_contours(image, path):
+def save_image_with_contours(image):
     """
     Display the image with highlighted contours using matplotlib.
 
@@ -62,16 +56,14 @@ def save_image_with_contours(image, path):
     count = 0
     for c in contours:
         area = cv.contourArea(c)
-        if area > 10:
+        if area > 5:
             cv.drawContours(out, [c], -1, (0, 255, 0), 1)
             count += 1
 
-    print("Cells:", count)
+    # print("Cells:", count)
 
     image_with_contours = image.copy()
     cv.drawContours(image_with_contours, contours, -1, (0, 255, 0), 1)
-
-    # print(f"Cell count: {len(contours)}")
 
     # Draw contours on a copy of the original image
     image_with_contours = image.copy()
@@ -87,14 +79,16 @@ def save_image_with_contours(image, path):
         image_with_contours = np.clip(image_with_contours, 0, 1)
 
     # Save the image with contours
-    plt.imsave(f"{path[:-4]}.png", image_with_contours)
-    display = cv.resize(out, (800, 600))
-    cv.imshow("Contours", display)
-    while True:
-        if cv.waitKey(1) & 0xFF == ord("q"):
-            break
+    # plt.imsave(f"{path[:-4]}.png", image_with_contours)
+
+    # display = cv.cvtColor(cv.resize(out, (800, 600)), cv.COLOR_BGR2RGB)
+    # cv.imshow("Contours", display)
+    # while True:
+    #     if cv.waitKey(1) & 0xFF == ord("q"):
+    #         break
     cv.destroyAllWindows()
-    print("Image with contours saved as contours.png")
+    # print("Image with contours saved as contours.png")
+    return count
 
 
 def main(image_path):
@@ -106,17 +100,36 @@ def main(image_path):
     """
     image = load_image(image_path)
     if image is not None:
-        save_image_with_contours(image, image_path)
+        count = save_image_with_contours(image)
+        return count
     else:
         print(f"Error: Could not load image at {image_path}")
         sys.exit(1)
 
 
 if __name__ == "__main__":
-    # logging.basicConfig(level=logging.INFO)
-    image_path = "./data/Ananya Sehgal_T1C1/Control 1/Slide 1/Au1_L3_C1t.vsi"
-    if not os.path.exists(image_path):
-        print(f"Error: Image file not found at {image_path}")
-        sys.exit(1)
-    main(image_path)
-    # overlay mask on original file
+    # image_path = "./data/<filename>.vsi"
+    # if not os.path.exists(image_path):
+    #     print(f"Error: Image file not found at {image_path}")
+    #     sys.exit(1)
+    # main(image_path)
+
+    with open("./ihc.csv", "w") as file:
+        cols1 = os.listdir("./data")
+        for col in sorted(cols1):
+            slides = os.listdir(f"./data/{col}")
+            for slide in sorted(slides):
+                regions = os.listdir(f"./data/{col}/{slide}")
+                for region in sorted(regions):
+                    image_path = f"./data/{col}/{slide}/{region}"
+                    if not image_path.endswith("d.vsi"):
+                        print(f"file path not valid. Skipping {region}")
+                        continue
+                    if not os.path.exists(image_path):
+                        print(f"Error: Image file not found at {image_path}")
+                        sys.exit(1)
+                    count = main(image_path)
+                    writer = csv.writer(file)
+                    writer.writerow([col, slide, region, count])
+
+    javabridge.kill_vm()
