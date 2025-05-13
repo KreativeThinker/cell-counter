@@ -55,13 +55,23 @@ def save_image_with_contours(image, path):
 
     # Find contours
     contours, _ = cv.findContours(
-        edges, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE
+        edges, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_NONE
     )
+
+    out = image.copy()
+    count = 0
+    for c in contours:
+        area = cv.contourArea(c)
+        if area > 10:
+            cv.drawContours(out, [c], -1, (0, 255, 0), 1)
+            count += 1
+
+    print("Cells:", count)
 
     image_with_contours = image.copy()
     cv.drawContours(image_with_contours, contours, -1, (0, 255, 0), 1)
 
-    print(f"Cell count: {len(contours)}")
+    # print(f"Cell count: {len(contours)}")
 
     # Draw contours on a copy of the original image
     image_with_contours = image.copy()
@@ -78,6 +88,12 @@ def save_image_with_contours(image, path):
 
     # Save the image with contours
     plt.imsave(f"{path[:-4]}.png", image_with_contours)
+    display = cv.resize(out, (800, 600))
+    cv.imshow("Contours", display)
+    while True:
+        if cv.waitKey(1) & 0xFF == ord("q"):
+            break
+    cv.destroyAllWindows()
     print("Image with contours saved as contours.png")
 
 
@@ -97,8 +113,8 @@ def main(image_path):
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-    image_path = "./data/Ananya Sehgal_T1C1/Control 1/Slide 1/Au1_L2_C1m.vsi"
+    # logging.basicConfig(level=logging.INFO)
+    image_path = "./data/Ananya Sehgal_T1C1/Control 1/Slide 1/Au1_L3_C1t.vsi"
     if not os.path.exists(image_path):
         print(f"Error: Image file not found at {image_path}")
         sys.exit(1)
