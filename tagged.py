@@ -1,3 +1,4 @@
+import csv
 import os
 import sys
 
@@ -30,7 +31,7 @@ def load_image(path):
 def save_image_with_contours(image):
     r, _, b = cv.split(image)
 
-    blurred_r = cv.GaussianBlur(r, (1, 1), 0)
+    blurred_r = cv.GaussianBlur(r, (5, 5), 0)
     blurred_b = cv.GaussianBlur(b, (1, 1), 0)
 
     if blurred_r.dtype != np.uint8:
@@ -38,8 +39,8 @@ def save_image_with_contours(image):
     if blurred_b.dtype != np.uint8:
         blurred_b = (blurred_b / np.max(blurred_b) * 255).astype(np.uint8)
 
-    cv.imshow("bluelayer", blurred_b)
-    cv.imshow("redlayer", blurred_r)
+    # cv.imshow("bluelayer", blurred_b)
+    # cv.imshow("redlayer", blurred_r)
 
     blue_edges = cv.Canny(blurred_b, 100, 200)
     contours_b, _ = cv.findContours(
@@ -79,13 +80,13 @@ def save_image_with_contours(image):
         else:
             cv.drawContours(out, [cb], -1, (0, 0, 255), 1)  # mark invalid ones
 
-    cv.imshow("Contours", cv.cvtColor(out, cv.COLOR_BGR2RGB))
-    print("Valid cells:", count)
-
-    while True:
-        if cv.waitKey(1) & 0xFF == ord("q"):
-            break
-    cv.destroyAllWindows()
+    # cv.imshow("Contours", cv.cvtColor(out, cv.COLOR_BGR2RGB))
+    # print("Valid cells:", count)
+    #
+    # while True:
+    #     if cv.waitKey(1) & 0xFF == ord("q"):
+    #         break
+    # cv.destroyAllWindows()
 
     return count
 
@@ -107,28 +108,28 @@ def main(image_path):
 
 
 if __name__ == "__main__":
-    image_path = "./data/Test 4/Slide 2/Au1_L3_T3m.vsi"
-    if not os.path.exists(image_path):
-        print(f"Error: Image file not found at {image_path}")
-        sys.exit(1)
-    main(image_path)
+    # image_path = "./data/Test 4/Slide 2/Au1_L3_T3m.vsi"
+    # if not os.path.exists(image_path):
+    #     print(f"Error: Image file not found at {image_path}")
+    #     sys.exit(1)
+    # main(image_path)
 
-    # with open("./ihc.csv", "w") as file:
-    #     cols1 = os.listdir("./data")
-    #     for col in sorted(cols1):
-    #         slides = os.listdir(f"./data/{col}")
-    #         for slide in sorted(slides):
-    #             regions = os.listdir(f"./data/{col}/{slide}")
-    #             for region in sorted(regions):
-    #                 image_path = f"./data/{col}/{slide}/{region}"
-    #                 if not image_path.endswith("d.vsi"):
-    #                     print(f"file path not valid. Skipping {region}")
-    #                     continue
-    #                 if not os.path.exists(image_path):
-    #                     print(f"Error: Image file not found at {image_path}")
-    #                     sys.exit(1)
-    #                 count = main(image_path)
-    #                 writer = csv.writer(file)
-    #                 writer.writerow([col, slide, region, count])
+    with open("./tritC_5x5.csv", "w") as file:
+        cols1 = os.listdir("./data")
+        for col in sorted(cols1):
+            slides = os.listdir(f"./data/{col}")
+            for slide in sorted(slides):
+                regions = os.listdir(f"./data/{col}/{slide}")
+                for region in sorted(regions):
+                    image_path = f"./data/{col}/{slide}/{region}"
+                    if not image_path.endswith("m.vsi"):
+                        print(f"file path not valid. Skipping {region}")
+                        continue
+                    if not os.path.exists(image_path):
+                        print(f"Error: Image file not found at {image_path}")
+                        sys.exit(1)
+                    count = main(image_path)
+                    writer = csv.writer(file)
+                    writer.writerow([col, slide, region, count])
 
     javabridge.kill_vm()
