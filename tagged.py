@@ -27,18 +27,19 @@ def load_image(path):
     return image_data
 
 
+def check_is_inside(blue_contour, red_contours):
+    for point in blue_contour:
+        pt = point[0].astype(np.uint8)
+        if any(cv.pointPolygonTest(rc, pt, False) >= 0 for rc in red_contours):
+            return True
+
+    return False
+
+
 def save_image_with_contours(image):
-    """
-    Display the image with highlighted contours using matplotlib.
-
-    Parameters:
-        image (numpy.ndarray): The image data to display.
-        path (str): The path to the image file.
-    """
-
     r, _, b = cv.split(image)
 
-    blurred_r = cv.GaussianBlur(r, (5, 5), 0)
+    blurred_r = cv.GaussianBlur(r, (3, 3), 0)
     blurred_b = cv.GaussianBlur(b, (1, 1), 0)
 
     if blurred_r.dtype != np.uint8:
@@ -53,6 +54,7 @@ def save_image_with_contours(image):
     contours_b, _ = cv.findContours(
         blue_edges, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_NONE
     )
+
     red_edges = cv.Canny(blurred_r, 100, 200)
     contours_r, _ = cv.findContours(
         red_edges, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_NONE
@@ -60,14 +62,25 @@ def save_image_with_contours(image):
 
     out = image.copy()
     count = 0
-    for c in contours_b:
-        area = cv.contourArea(c)
-        if area > 5:
-            cv.drawContours(out, [c], -1, (0, 255, 0), 1)
+    for cb in contours_b:
+        area = cv.contourArea(cb)
+        if area <= 5:
+            continue
+
+        is_inside = check_is_inside(cb, contours_r)
+
+        cv.drawContours(out, contours_r, -1, (255, 0, 0), 1)
+
+        if is_inside:
+            cv.drawContours(out, [cb], -1, (0, 255, 0), 1)
             count += 1
+        else:
+            cv.drawContours(
+                out, [cb], -1, (255, 0, 255), 1
+            )  # mark invalid ones
 
     cv.imshow("Contours", cv.cvtColor(out, cv.COLOR_BGR2RGB))
-    print("Cells:", count)
+    print("Valid cells:", count)
 
     while True:
         if cv.waitKey(1) & 0xFF == ord("q"):
@@ -94,7 +107,10 @@ def main(image_path):
 
 
 if __name__ == "__main__":
-    image_path = "./data/Test 4/Slide 2/Au1_L3_T3m.vsi"
+    # image_path = "./data/Test 4/Slide 2/Au1_L3_T3m.vsi"
+    image_path = (
+        "/home/ghost/projects/cell-counter/data/Control 4/Slide 2/Au1_L3m.vsi"
+    )
     if not os.path.exists(image_path):
         print(f"Error: Image file not found at {image_path}")
         sys.exit(1)
