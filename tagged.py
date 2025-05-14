@@ -28,17 +28,9 @@ def load_image(path):
 
 
 def save_image_with_contours(image):
-    """
-    Display the image with highlighted contours using matplotlib.
-
-    Parameters:
-        image (numpy.ndarray): The image data to display.
-        path (str): The path to the image file.
-    """
-
     r, _, b = cv.split(image)
 
-    blurred_r = cv.GaussianBlur(r, (5, 5), 0)
+    blurred_r = cv.GaussianBlur(r, (1, 1), 0)
     blurred_b = cv.GaussianBlur(b, (1, 1), 0)
 
     if blurred_r.dtype != np.uint8:
@@ -53,6 +45,7 @@ def save_image_with_contours(image):
     contours_b, _ = cv.findContours(
         blue_edges, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_NONE
     )
+
     red_edges = cv.Canny(blurred_r, 100, 200)
     contours_r, _ = cv.findContours(
         red_edges, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_NONE
@@ -60,14 +53,34 @@ def save_image_with_contours(image):
 
     out = image.copy()
     count = 0
-    for c in contours_b:
-        area = cv.contourArea(c)
-        if area > 5:
-            cv.drawContours(out, [c], -1, (0, 255, 0), 1)
+    for cb in contours_b:
+        area = cv.contourArea(cb)
+        if area <= 5:
+            continue
+
+        # Get centroid of blue contour
+        M = cv.moments(cb)
+        if M["m00"] == 0:
+            continue
+        cx = int(M["m10"] / M["m00"])
+        cy = int(M["m01"] / M["m00"])
+        point = (cx, cy)
+
+        # Check if point is inside or on any red contour
+        is_inside = any(
+            cv.pointPolygonTest(cr, point, False) >= 0 for cr in contours_r
+        )
+
+        cv.drawContours(out, contours_r, -1, (255, 0, 0), 1)
+
+        if is_inside:
+            cv.drawContours(out, [cb], -1, (0, 255, 0), 1)
             count += 1
+        else:
+            cv.drawContours(out, [cb], -1, (0, 0, 255), 1)  # mark invalid ones
 
     cv.imshow("Contours", cv.cvtColor(out, cv.COLOR_BGR2RGB))
-    print("Cells:", count)
+    print("Valid cells:", count)
 
     while True:
         if cv.waitKey(1) & 0xFF == ord("q"):
