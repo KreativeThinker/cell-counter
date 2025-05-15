@@ -18,7 +18,7 @@ Manual cell counting is slow, tedious, and error-prone. This script automates co
 
 | Original Image                              | Contour Detection                            |
 | ------------------------------------------- | -------------------------------------------- |
-| ![original](./screenshots/sample_input.png) | ![contours](./screenshots/sample_output.png) |
+| ![original](./public/test_sample.vsi) | ![contours](./public/contoured_sample.png) |
 
 *Real microscope images used. Count result shown in overlay.*
 
