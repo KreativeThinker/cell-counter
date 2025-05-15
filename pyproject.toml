@@ -8,7 +8,6 @@ dependencies = [
     "matplotlib>=3.10.3",
     "opencv-contrib-python>=4.11.0.86",
     "opencv-python>=4.11.0.86",
-    "pyqt5>=5.15.11",
     "python-bioformats>=4.1.0",
     "scikit-image>=0.25.2",
     "scipy>=1.15.3",
@@ -24,3 +23,11 @@ line_length = 79
 [tool.flake8]
 max-line-length = 79
 extend-ignore = ["E203", "W503"]  # For compatibility with Black (optional)
+
+[dependency-groups]
+dev = [
+    "black>=25.1.0",
+    "flake8>=7.2.0",
+    "isort>=6.0.1",
+    "pre-commit>=4.2.0",
+]

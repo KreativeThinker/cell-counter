@@ -54,10 +54,12 @@ python main.py
 Install with:
 
 ```bash
-pip install -r requirements.txt
+git clone https://github.com/KreativeThinker/cell-counter
+cd cell-counter
+uv venv
+activate
+uv sync
 ```
-
-(or use `uv`, `poetry`, etc. depending on your setup)
 
 ### 🛠️ To Do
 
