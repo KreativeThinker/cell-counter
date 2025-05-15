@@ -18,7 +18,15 @@ Manual cell counting is slow, tedious, and error-prone. This script automates co
 
 | Original Image                              | Contour Detection                            |
 | ------------------------------------------- | -------------------------------------------- |
-| ![original](./public/test_sample.vsi) | ![contours](./public/contoured_sample.png) |
+| ![original](./public/test_image.jpg) | ![contours](./public/contoured_sample.png) |
+
+
+Count: [275, 920]
+| Indicator | Count | Legend |
+| -------------- | --------------- | ------------ |
+| DAPI | 920 | blue |
+| TritC/cFos | 275 | green |
+
 
 *Real microscope images used. Count result shown in overlay.*
 
